@@ -412,6 +412,11 @@ p {
   letter-spacing: -0.5px;
   overflow-wrap: anywhere;
 }
+.records-panel .notice code {
+  user-select: text;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .record-heading p {
   color: var(--muted);
   font-size: 12px;

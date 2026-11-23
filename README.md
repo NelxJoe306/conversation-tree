@@ -33,4 +33,18 @@ npm run typecheck
 
 `components/conversation-tree.tsx` 是可挂载的 React 页面。`lib/tree-source.ts` 定义页面所需的接口。`readSnapshot` 提供话题、轮次和一页消息，`locateEntry` 定位轮次或原文，`watch` 可选地通知页面重读数据，`editTopic` 可选地提供共享会话里的话题操作。
 
-Octo 的 HTTP、校验和 SSE 代码在 `adapters/octo.ts`，离线数据在 `adapters/example.ts`。当前实现支持这两种来源。接入 DSH、Codex 或 AGY 时，先实现历史读取和原文定位。涉及宿主原生的会话 fork 时，应由适配器显式提供独立会话的操作及可用切点，并在界面上与共享会话的话题操作区分。
+Octo 的 HTTP、校验和 SSE 代码在 `adapters/octo.ts`，离线数据在 `adapters/example.ts`。Codex、DSH 和 AGY 通过本机连接进程使用同一个页面。运行 `npm run build` 后，用下面的命令启动连接，再打开命令输出的地址。
+
+```sh
+npm run connect -- codex --session <thread-id>
+npm run connect -- dsh --session <session-id> --file <session.v4.jsonl>
+npm run connect -- agy --session <conversation-uuid> --file <transcript.jsonl>
+```
+
+| 宿主 | 入口 | 可用操作 |
+| --- | --- | --- |
+| Codex | 本机 App Server。可用 `--command` 指定原生 CLI 可执行文件路径 | 读取历史、从已完成轮次复制会话、查看该会话的续聊命令 |
+| DSH | 从 `/export` ZIP 解压对应会话的 `session.v2.jsonl`、`session.v3.jsonl` 或 `session.v4.jsonl`。也可指定 `readSession` 输出的逻辑快照 JSON | 导入入口支持查看历史。DSH 原生适配可绑定 `sessionController.fork`，按 `turn/end` 的 `seq` 分叉 |
+| AGY | 选择会话 ID 及其本机 `transcript.jsonl`，路径可以从官方 hooks 的 `transcriptPath` 或状态栏取得 | 读取历史、查看按 ID 续聊的命令。AGY 自身的分叉在宿主里完成 |
+
+已连接的外部会话用页面的刷新按钮读取新记录。「查看续聊命令」显示由宿主适配器生成的命令，由用户在终端执行。分叉关系保存在本机 `~/.conversation-tree/`，可用 `--state` 指定目录。详细接口见 [宿主接入设计](docs/host-integration.md)。

@@ -44,6 +44,7 @@ export function octoSource(token: string): TreeSource {
   }
 
   return {
+    kind: "topics",
     name: "Octo",
     async readSnapshot(query = {}) {
       const params = new URLSearchParams();
