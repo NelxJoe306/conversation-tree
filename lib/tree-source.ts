@@ -6,6 +6,7 @@ export type SnapshotQuery = { topic?: TopicId } & (
 );
 
 export interface TreeSource {
+  kind: "example" | "topics" | "sessions";
   name: string;
   readSnapshot(query?: SnapshotQuery): Promise<Snapshot>;
   locateEntry(entry: Message["id"]): Promise<{
@@ -14,6 +15,8 @@ export interface TreeSource {
     entry_id: string;
   }>;
   editTopic?(command: TopicCommand): Promise<TopicId>;
+  resume?(topic: TopicId): Promise<string>;
+  fork?(topic: TopicId, turn: string): Promise<TopicId>;
   watch?(
     onChange: () => void,
     onDisconnect: (reason: string) => void,

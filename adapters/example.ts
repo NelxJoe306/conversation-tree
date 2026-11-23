@@ -51,6 +51,7 @@ const fixture = snapshotSchema.parse({
 });
 
 export const exampleSource: TreeSource = {
+  kind: "example",
   name: "离线示例",
   async readSnapshot(query = {}) {
     const { before, after } = query;

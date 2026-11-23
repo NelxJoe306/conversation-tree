@@ -25,8 +25,17 @@ export const turnSchema = z.object({
   parent_turn_id: z.string().nullable(),
   entry_ids: z.array(entryId),
   number: z.number().int().positive(),
+  forkable: z.boolean().optional(),
 });
 export type Turn = z.infer<typeof turnSchema>;
+export const messageSchema = z.object({
+  id: entryId,
+  seq: z.number().int(),
+  role: z.string(),
+  text: z.string(),
+  timestamp: z.number().nullable(),
+  request_id: z.string().nullable(),
+});
 export const snapshotSchema = z
   .object({
     session_id: sessionId,
@@ -37,16 +46,7 @@ export const snapshotSchema = z
     viewed_topic_id: topicId,
     active_topic_id: topicId.nullable(),
     running: z.boolean(),
-    messages: z.array(
-      z.object({
-        id: entryId,
-        seq: z.number().int(),
-        role: z.string(),
-        text: z.string(),
-        timestamp: z.number(),
-        request_id: z.string().nullable(),
-      }),
-    ),
+    messages: z.array(messageSchema),
     has_more: z.boolean(),
     before: z.number().nullable(),
     after: z.number().int().nonnegative().nullable().default(null),

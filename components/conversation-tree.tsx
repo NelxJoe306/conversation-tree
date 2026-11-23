@@ -60,6 +60,7 @@ export function ConversationTree({ source }: { source: TreeSource }) {
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [resume, setResume] = useState("");
   const [scrollTarget, setScrollTarget] = useState<ScrollTarget | null>(null);
   const highlight = scrollTarget?.kind === "entry" ? scrollTarget.id : null;
   const [loadingPage, setLoadingPage] = useState(false);
@@ -299,6 +300,9 @@ export function ConversationTree({ source }: { source: TreeSource }) {
   const maxWidth = Math.max(260, Math.min(640, width - 390));
   const panelWidth = Math.max(260, Math.min(treeWidth, maxWidth));
   const connected = connection.kind === "connected";
+  const forkableTurns = new Map(
+    snapshot?.turns.filter((turn) => turn.forkable).map((turn) => [turn.last_entry_id, turn]),
+  );
 
   async function command(body: TopicCommand, target?: TopicId) {
     if (!source.editTopic) return;
@@ -322,6 +326,7 @@ export function ConversationTree({ source }: { source: TreeSource }) {
     entry: Message["id"] | null = null,
   ) {
     if (!snapshot || busy) return;
+    setResume("");
     setScrollTarget(null);
     if (!source.editTopic) {
       if (entry) await locate(entry);
@@ -365,6 +370,35 @@ export function ConversationTree({ source }: { source: TreeSource }) {
       setCopied(message.id);
     } catch {
       setError("复制失败，可选中消息正文手动复制。");
+    }
+  }
+
+  async function showResume(id: TopicId) {
+    if (!source.resume) return;
+    setBusy(true);
+    setError("");
+    try {
+      setResume(await source.resume(id));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "无法读取续聊命令");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function fork(id: TopicId, turn: string) {
+    if (!source.fork) return;
+    setBusy(true);
+    setError("");
+    setResume("");
+    try {
+      const child = await source.fork(id, turn);
+      setScrollTarget(null);
+      await load({ topic: child }, true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "会话分叉失败，请检查宿主");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -703,7 +737,7 @@ export function ConversationTree({ source }: { source: TreeSource }) {
                               ? `${message_count} 条消息`
                               : kind === "empty"
                                 ? "未产生对话"
-                                : "共享会话"}
+                                : source.kind === "sessions" ? "宿主会话" : "共享会话"}
                             {source.editTopic && snapshot?.selected_topic_id === topic.id &&
                               isLatest && <em>终端当前</em>}
                             {snapshot?.running &&
@@ -835,7 +869,21 @@ export function ConversationTree({ source }: { source: TreeSource }) {
                 </button>
               </div>
             )}
+            {source.resume && selected && (
+              <div className="record-actions">
+                <button disabled={!connected || busy} onClick={() => void showResume(selected.id)}>
+                  <ArrowUpRight size={16} />
+                  查看续聊命令
+                </button>
+              </div>
+            )}
           </div>
+          {resume && (
+            <div className="notice" role="status">
+              <code>{resume}</code>
+              <button type="button" onClick={() => setResume("")}>关闭</button>
+            </div>
+          )}
           <div
             className="records-scroll"
             ref={recordsPane}
@@ -900,12 +948,9 @@ export function ConversationTree({ source }: { source: TreeSource }) {
                             ? "工具结果"
                             : "会话记录"}
                     </strong>
-                    <time>
-                      {new Date(message.timestamp * 1000).toLocaleString(
-                        "zh-CN",
-                        { hour12: false },
-                      )}
-                    </time>
+                    {message.timestamp !== null && (
+                      <time>{new Date(message.timestamp * 1000).toLocaleString("zh-CN", { hour12: false })}</time>
+                    )}
                     <code>{message.id.slice(0, 8)}</code>
                   </div>
                   <MessageContent
@@ -931,6 +976,15 @@ export function ConversationTree({ source }: { source: TreeSource }) {
                       <GitBranch size={14} />
                       从此建立子话题
                     </button>}
+                    {source.fork && forkableTurns.has(message.id) && (
+                      <button disabled={!connected || busy} onClick={() => {
+                        const turn = forkableTurns.get(message.id);
+                        if (turn) void fork(turn.topic_id, turn.id);
+                      }}>
+                        <GitBranch size={14} />
+                        从此复制会话
+                      </button>
+                    )}
                   </div>
                 </article>
               ))
@@ -963,8 +1017,8 @@ export function ConversationTree({ source }: { source: TreeSource }) {
           </div>
           <footer className="record-footer">
             <Terminal size={15} />
-            <span>{source.editTopic ? "在终端提问与查看生成过程" : "离线示例"}</span>
-            <span className="shared-note">同一会话共享历史</span>
+            <span>{source.kind === "example" ? "离线示例" : "在宿主中继续提问"}</span>
+            <span className="shared-note">{source.kind === "sessions" ? "分支独立续聊" : "同一会话共享历史"}</span>
           </footer>
         </section>
       </div>
